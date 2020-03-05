@@ -23,8 +23,7 @@ public class ApplicationRunner {
             readTradeDataJson.initiateReadingProcess();
         }
 
-
         //worker-3 web-sockets
-        //TODO: web-sockets
+        //TODO: web-sockets thread
     }
 }

@@ -1,10 +1,13 @@
 package org.analyticalserver.ohlc.worker2;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -18,12 +21,14 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Log4j
 public class FiniteStateMachine {
+    private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
     private final long period;
     private final TimeUnit timeUnit;
-    private JSONParser jsonParser = new JSONParser();
+    private final JSONParser jsonParser = new JSONParser();
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    //
     private AtomicLong cronBarNumber = new AtomicLong(1);
     private AtomicLong barNumberToBeProcessed = new AtomicLong(1);
-    private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
 
     //maintains queue
     private ConcurrentHashMap<Long, Queue<String>> mapBarNumberQueue = new ConcurrentHashMap<>();
@@ -34,8 +39,8 @@ public class FiniteStateMachine {
     //for metadata
     private ConcurrentHashMap<BarNumberSymbol, BarNumberSymbolMetaData> mapBarNumberSymbolMetaDataWrapper = new ConcurrentHashMap<>();
 
-    //for keeping track of previous volume of previous bar number + symbol
-    private ConcurrentHashMap<BarNumberSymbol, Double> mapBarNumberSymbolVolume = new ConcurrentHashMap<>();
+    //for keeping track of volume of previous bar number + symbol
+    private ConcurrentHashMap<BarNumberSymbol, BigDecimal> mapBarNumberSymbolVolume = new ConcurrentHashMap<>();
 
     public FiniteStateMachine(TimeUnit timeUnit, long period) {
         this.timeUnit = timeUnit;
@@ -57,13 +62,13 @@ public class FiniteStateMachine {
         log.info(String.format("CRON Set for time unit: %s, period: %d", timeUnit, period));
     }
 
-    private void startProcessingDataPacketFromQueue() {
+    private synchronized void startProcessingDataPacketFromQueue() {
         log.info("CRON TRIGGERED at: " + dateTimeFormatter.format(LocalDateTime.now()));
 
         //increment the barNumberInterval so that the next addition to the queue happens on the next barNumber
         cronBarNumber.incrementAndGet();
 
-        //fetch the Queue for the barNumberProcessed
+        //fetch the Queue for the barNumberToBeProcessed
         Queue<String> queueDataPacket = mapBarNumberQueue.get(barNumberToBeProcessed.get());
 
         log.info(String.format("cronBarNumber: %d, barNumberToBeProcessed: %d", cronBarNumber.get(), barNumberToBeProcessed.get()));
@@ -88,7 +93,7 @@ public class FiniteStateMachine {
         Long barNumberProcessing = barNumberToBeProcessed.get();
 
         mapBarNumberSymbolDataWrapperList.get(barNumberProcessing).forEach((symbol, dataWrapperList) -> {
-            log.info(String.format("BarNumber: %d | Symbol: %s", barNumberProcessing, symbol));
+            log.info(String.format("Notifying - BarNumber: %d | Symbol: %s", barNumberProcessing, symbol));
 
             //TODO: toggle if condition, this is for testing purpose
 //            if (!dataWrapperList.isEmpty() && symbol.equals("XXBTZUSD")) {
@@ -98,26 +103,30 @@ public class FiniteStateMachine {
                 BarChartData lastBarChartData = dataWrapperList.get(dataWrapperList.size() - 1);
                 lastBarChartData.setC(lastBarChartData.getCurrentValue());
 
-                Double volume = 0.0;
-                if (barNumberProcessing > 1) {
+                BigDecimal volume = BigDecimal.valueOf(0.0);
+                if (barNumberProcessing >= 2) {
                     //get last known bar volume for the symbol
                     volume = getLastBarNumberSymbolKnownVolume(barNumberProcessing, mapBarNumberSymbolVolume, symbol);
                 }
 
                 for (BarChartData barChartData : dataWrapperList) {
-                    volume += barChartData.getCurrentQuantity();
+                    volume = volume.add(barChartData.getCurrentQuantity());
                     barChartData.setVolume(volume);
-                    log.info(barChartData);
+                    try {
+                        log.info(objectMapper.writeValueAsString(barChartData));
+                    } catch (JsonProcessingException e) {
+                        e.printStackTrace();
+                    }
                 }
 
-                final Double barNumberSymbolVolume = volume;
+                final BigDecimal barNumberSymbolVolume = volume;
                 mapBarNumberSymbolVolume.compute(new BarNumberSymbol(barNumberProcessing, symbol), (barNumberSymbol, value) -> barNumberSymbolVolume);
             }
         });
     }
 
-    private Double getLastBarNumberSymbolKnownVolume(Long barNumberProcessing, ConcurrentHashMap<BarNumberSymbol, Double> mapBarNumberSymbolVolume, String symbol) {
-        Double lastKnownVolume;
+    private BigDecimal getLastBarNumberSymbolKnownVolume(Long barNumberProcessing, ConcurrentHashMap<BarNumberSymbol, BigDecimal> mapBarNumberSymbolVolume, String symbol) {
+        BigDecimal lastKnownVolume;
         while (barNumberProcessing >= 1) {
             lastKnownVolume = mapBarNumberSymbolVolume.get(new BarNumberSymbol(barNumberProcessing - 1, symbol));
             if (lastKnownVolume != null) {
@@ -125,7 +134,7 @@ public class FiniteStateMachine {
             }
             barNumberProcessing--;
         }
-        return 0.0;
+        return BigDecimal.valueOf(0.0);
     }
 
     private void processDataPacket(String data) {
@@ -136,12 +145,12 @@ public class FiniteStateMachine {
             String currentSymbol = String.valueOf(jsonObject.get("sym"));
             Double currentPrice = Double.valueOf(jsonObject.get("P").toString());
             Double currentQuantity = Double.valueOf(jsonObject.get("Q").toString());
-            Long currentTimestamp = (Long) jsonObject.get("TS2");
+//            Long currentTimestamp = (Long) jsonObject.get("TS2");
 
-            //compare current data with the meta data(if any) & update high/low price accordingly
+            //compare current value with the meta data(if any) & update high/low price accordingly
             BarNumberSymbolMetaData barNumberSymbolMetaData = compareWithMetaDataAndUpdateIfRequired(currentSymbol, currentPrice);
 
-            //prepare bar chart data, leaving the close & volume field
+            //prepare partial bar chart data, excluding the close & volume field
             preparePartialBarCharData(currentSymbol, currentPrice, currentQuantity, barNumberSymbolMetaData);
         } catch (ParseException e) {
             e.printStackTrace();
@@ -149,22 +158,21 @@ public class FiniteStateMachine {
     }
 
     private void preparePartialBarCharData(String currentSymbol, Double currentPrice, Double currentQuantity, BarNumberSymbolMetaData barNumberSymbolMetaData) {
-        mapBarNumberSymbolDataWrapperList.computeIfAbsent(barNumberToBeProcessed.get(), bnp -> new ConcurrentHashMap<>());
-        ConcurrentHashMap<String, List<BarChartData>> mapSymbolDataWrapperList = mapBarNumberSymbolDataWrapperList.get(barNumberToBeProcessed.get());
+        mapBarNumberSymbolDataWrapperList.computeIfAbsent(barNumberToBeProcessed.get(), key -> new ConcurrentHashMap<>());
 
-        mapSymbolDataWrapperList.compute(currentSymbol, (key, dataWrapperList) -> {
+        mapBarNumberSymbolDataWrapperList.get(barNumberToBeProcessed.get()).compute(currentSymbol, (key, dataWrapperList) -> {
             if (dataWrapperList == null) {
                 dataWrapperList = new ArrayList<>();
             }
             BarChartData barChartData = BarChartData.builder()
                     .barNumber(barNumberToBeProcessed.get())
                     .symbol(currentSymbol)
-                    .o(barNumberSymbolMetaData.getOpen())
-                    .h(barNumberSymbolMetaData.getHigh())
-                    .l(barNumberSymbolMetaData.getLow())
-                    .c(0.0)
-                    .currentValue(currentPrice)
-                    .currentQuantity(currentQuantity)
+                    .o(BigDecimal.valueOf(barNumberSymbolMetaData.getOpen()))
+                    .h(BigDecimal.valueOf(barNumberSymbolMetaData.getHigh()))
+                    .l(BigDecimal.valueOf(barNumberSymbolMetaData.getLow()))
+                    .c(BigDecimal.valueOf(0.0))
+                    .currentValue(BigDecimal.valueOf(currentPrice))
+                    .currentQuantity(BigDecimal.valueOf(currentQuantity))
                     .build();
             dataWrapperList.add(barChartData);
             return dataWrapperList;

@@ -25,7 +25,7 @@ public class ReadTradeDataJson {
 
     private void startReadingDataFromFileAndSubmitToQueue() {
         log.info("Opening File for reading");
-        try (Scanner scanner = new Scanner(new File(ClassLoader.getSystemClassLoader().getResource(INPUT_FILE_NAME).getFile()))) {
+        try (Scanner scanner = new Scanner(new File(getResourceFileName()))) {
             log.info("Reading Started...");
             while (scanner.hasNextLine()) {
                 finiteStateMachine.addToQueue(scanner.nextLine());
@@ -37,6 +37,10 @@ public class ReadTradeDataJson {
         }
     }
 
+    private String getResourceFileName() {
+        return ClassLoader.getSystemClassLoader().getResource(INPUT_FILE_NAME).getFile();
+    }
+
     /**
      * Below code is for simulating/testing with PDFData
      */
@@ -45,7 +49,7 @@ public class ReadTradeDataJson {
     }
 
     private void startReadingDataFromFileAndSubmitToQueueSimulatePdfDataBar() {
-        try (Scanner scanner = new Scanner(new File(ClassLoader.getSystemClassLoader().getResource(INPUT_FILE_NAME).getFile()))) {
+        try (Scanner scanner = new Scanner(new File(getResourceFileName()))) {
             int cnt = 0;
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
