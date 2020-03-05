@@ -58,7 +58,6 @@ public class FiniteStateMachine {
     }
 
     private void startProcessingDataPacketFromQueue() {
-        System.out.println("Hare Krsna!!");
         log.info("CRON TRIGGERED at: " + dateTimeFormatter.format(LocalDateTime.now()));
 
         //increment the barNumberInterval so that the next addition to the queue happens on the next barNumber
@@ -66,9 +65,11 @@ public class FiniteStateMachine {
 
         //fetch the Queue for the barNumberProcessed
         Queue<String> queueDataPacket = mapBarNumberQueue.get(barNumberToBeProcessed.get());
-        if (queueDataPacket.isEmpty()) {
+
+        log.info(String.format("cronBarNumber: %d, barNumberToBeProcessed: %d", cronBarNumber.get(), barNumberToBeProcessed.get()));
+        if (queueDataPacket == null || queueDataPacket.isEmpty()) {
             //TODO: need to add logic when empty
-            log.warn("Nothing to process, as Queue is Empty, for bar number: " + barNumberToBeProcessed.get());
+            log.warn("Nothing to process, as Queue is Empty, for bar number: " + barNumberToBeProcessed.getAndIncrement());
             return;
         }
 

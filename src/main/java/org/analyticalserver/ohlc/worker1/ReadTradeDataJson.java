@@ -38,7 +38,7 @@ public class ReadTradeDataJson {
     }
 
     /**
-     * Below code is for similating/testing with PDFData
+     * Below code is for simulating/testing with PDFData
      */
     public void initiateReadingProcessSimulatePdfDataBar() {
         executorService.submit(this::startReadingDataFromFileAndSubmitToQueueSimulatePdfDataBar);
@@ -46,20 +46,20 @@ public class ReadTradeDataJson {
 
     private void startReadingDataFromFileAndSubmitToQueueSimulatePdfDataBar() {
         try (Scanner scanner = new Scanner(new File(ClassLoader.getSystemClassLoader().getResource(INPUT_FILE_NAME).getFile()))) {
-            //TODO: for testing, remove cnt
             int cnt = 0;
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
 
                 finiteStateMachine.addToQueue(line);
+
+                //This is timestamp of the last json in bar1 as shown in sample pdf
                 if (line.contains("1538409768683832846")) {
                     TimeUnit.MILLISECONDS.sleep(200);
                 }
 
-                //TODO: for testing, remove cnt code
                 cnt++;
                 if (cnt > 40) {
-                    log.error("Exitting file");
+                    log.error("Stopped reading");
                     break;
                 }
             }
