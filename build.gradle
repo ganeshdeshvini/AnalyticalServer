@@ -20,3 +20,21 @@ dependencies {
     compile group: 'org.slf4j', name: 'slf4j-log4j12', version: '1.7.30'
     compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.10.3'
 }
+
+task runJar(type: JavaExec) {
+    println "Provided File path: " + filepath
+    main = "-jar";
+    args = [jar.archivePath, filepath]
+}
+
+jar {
+    into 'resources', {
+        from 'resources'
+    }
+    manifest {
+        attributes "Main-Class": "org.analyticalserver.ohlc.ApplicationRunner"
+    }
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
