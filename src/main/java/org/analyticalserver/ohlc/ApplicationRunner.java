@@ -14,10 +14,18 @@ public class ApplicationRunner {
             System.exit(0);
         }
         String inputFileName = args[0];
+        Long milliseconds = null;
+        if (args.length >= 2) {
+            milliseconds = Long.parseLong(args[1]);
+        }
 
+        FiniteStateMachine finiteStateMachine;
         //worker-2 FSM
-//        FiniteStateMachine finiteStateMachine = new FiniteStateMachine(TimeUnit.MILLISECONDS, 200);
-        FiniteStateMachine finiteStateMachine = new FiniteStateMachine(TimeUnit.SECONDS, 15);
+        if (milliseconds == null) {
+            finiteStateMachine = new FiniteStateMachine(TimeUnit.SECONDS, 15);
+        } else {
+            finiteStateMachine = new FiniteStateMachine(TimeUnit.MILLISECONDS, milliseconds);
+        }
         finiteStateMachine.scheduleIntervalCron();
 
         ExecutorService executorService = Executors.newFixedThreadPool(2);

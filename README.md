@@ -23,11 +23,19 @@ Check the permission for **gradlew** file, if it doesn't have enough access then
 sudo chmod 777 gradlew
 ```
 
+####15 secs interval run
 For running the application we need to specify the **trades.json** file for reading
 we can pass the same in argument to gradle using following command
 
 ```
 sudo ./gradlew clean build runJar -Pfilepath=G:\trades.json
+```
+
+####Custom milliseconds interval run
+This will run for the defined interval in milliseconds, have to specify property as **milli**
+
+```
+sudo ./gradlew clean build runJar -Pfilepath=G:\trades.json -Pmilli=200
 ```
 
 replace **filepath** value with the file you want to read

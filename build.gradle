@@ -24,7 +24,11 @@ dependencies {
 task runJar(type: JavaExec) {
     println "Provided File path: " + filepath
     main = "-jar";
-    args = [jar.archivePath, filepath]
+    if (project.findProperty("milli")) {
+        args = [jar.archivePath, filepath, milli]
+    } else {
+        args = [jar.archivePath, filepath]
+    }
 }
 
 jar {
