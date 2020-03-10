@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id "org.springframework.boot" version "2.0.1.RELEASE"
 }
 
 group 'org.ganesh.upstox'
@@ -12,24 +13,45 @@ repositories {
 }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.12'
-    compile group: 'com.googlecode.json-simple', name: 'json-simple', version: '1.1.1'
-    compile group: 'org.projectlombok', name: 'lombok', version: '1.18.12'
-    annotationProcessor group: 'org.projectlombok', name: 'lombok', version: '1.18.12'
-    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.30'
-    compile group: 'org.slf4j', name: 'slf4j-log4j12', version: '1.7.30'
-    compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.10.3'
+    testCompile "junit:junit:${junitVersion}"
+    compile "com.googlecode.json-simple:json-simple:${gsonVersion}"
+    compile "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    compile "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    compile "org.springframework.boot:spring-boot-starter-websocket:${springBootVersion}"
+//    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.30'
+//    compile group: 'org.slf4j', name: 'slf4j-log4j12', version: '1.7.30'
 }
 
-task runJar(type: JavaExec) {
-    println "Provided File path: " + filepath
-    main = "-jar";
-    if (project.findProperty("milli")) {
-        args = [jar.archivePath, filepath, milli]
+bootRun {
+    if (project.findProperty("filepath")) {
+        println "Provided File path: " + filepath
+        main = "-jar";
+        if (project.findProperty("milli")) {
+            args = [filepath, milli]
+        } else {
+            args = [filepath]
+        }
     } else {
-        args = [jar.archivePath, filepath]
+//        throw new GradleException('Required filepath environment variable not set.')
     }
 }
+
+/*
+task runJar(type: JavaExec) {
+    if (project.findProperty("filepath")) {
+        println "Provided File path: " + filepath
+        main = "-jar";
+        if (project.findProperty("milli")) {
+            args = [jar.archivePath, filepath, milli]
+        } else {
+            args = [jar.archivePath, filepath]
+        }
+    } else {
+//        throw new GradleException('Required filepath environment variable not set.')
+    }
+}
+*/
 
 jar {
     into 'resources', {

@@ -1,32 +1,30 @@
 package org.analyticalserver.ohlc.worker1;
 
-import lombok.extern.log4j.Log4j;
+import lombok.extern.slf4j.Slf4j;
 import org.analyticalserver.ohlc.worker2.FiniteStateMachine;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-@Log4j
+@Slf4j
+@Component
 public class ReadTradeDataJson {
-    private final String fileNameWithPath;
-    private final ExecutorService executorService;
-    private final FiniteStateMachine finiteStateMachine;
+    @Autowired
+    private FiniteStateMachine finiteStateMachine;
 
-    public ReadTradeDataJson(ExecutorService executorService, FiniteStateMachine finiteStateMachine, String fileNameWithPath) {
-        this.executorService = executorService;
-        this.finiteStateMachine = finiteStateMachine;
-        this.fileNameWithPath = fileNameWithPath;
+    public void initiateReadingProcess(String inputFileName) {
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
+        executorService.submit(() -> startReadingDataFromFileAndSubmitToQueue(inputFileName));
     }
 
-    public void initiateReadingProcess() {
-        executorService.submit(this::startReadingDataFromFileAndSubmitToQueue);
-    }
-
-    private void startReadingDataFromFileAndSubmitToQueue() {
+    private void startReadingDataFromFileAndSubmitToQueue(String inputFileName) {
         log.info("Opening File for reading");
-        try (Scanner scanner = new Scanner(new FileInputStream(fileNameWithPath))) {
+        try (Scanner scanner = new Scanner(new FileInputStream(inputFileName))) {
             log.info("Reading Started...");
             while (scanner.hasNextLine()) {
                 finiteStateMachine.addToQueue(scanner.nextLine());
@@ -34,7 +32,7 @@ public class ReadTradeDataJson {
             log.info("Reading Finished...");
 
         } catch (FileNotFoundException e) {
-            System.err.println("File does not exist, please specify valid fully qualified filename");
+            log.error("File does not exist, please specify valid fully qualified filename");
         } catch (Exception e) {
             e.printStackTrace();
         }
