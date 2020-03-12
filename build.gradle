@@ -28,9 +28,9 @@ bootRun {
         println "Provided File path: " + filepath
         main = "-jar";
         if (project.findProperty("milli")) {
-            args = [filepath, milli]
+            args = [jar.archivePath, filepath, milli]
         } else {
-            args = [filepath]
+            args = [jar.archivePath, filepath]
         }
     } else {
 //        throw new GradleException('Required filepath environment variable not set.')
